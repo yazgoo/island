@@ -3,6 +3,7 @@ beach0:
   platforms:
     ground:
       pos: [700, 1100, 3000, 1100]
+  exit: [2350, 800, 50, 300]
   decorations:
     background:
       color: 0xff_A9E2F3
