@@ -28,17 +28,17 @@ class IslandWindow < Gosu::Window
     @space.add_body character_body
     @space.add_shape @character_shape
     @platforms = @scene["platforms"].map do |k, v| 
+      pos = v["pos"]
       platform_body = CP::Body.new(CP::INFINITY, CP::INFINITY) 
-      platform_shape = CP::Shape::Segment.new(platform_body, v2(700, 1100), v2(3000, 1100), 3) 
+      platform_shape = CP::Shape::Segment.new(platform_body, v2(pos[0], pos[1]), v2(pos[2], pos[3]), 3) 
+      platform_shape.collision_type = :ground
+      # friction
+      platform_shape.u = 1.5
+      # elasticity
+      platform_shape.e = 0
+      @space.add_static_shape platform_shape
+      platform_shape
     end
-    @segment_body = CP::Body.new(CP::INFINITY, CP::INFINITY)
-    @segment_shape = CP::Shape::Segment.new(@segment_body, v2(700, 1100), v2(3000, 1100), 3)
-    @segment_shape.collision_type = :ground
-    # friction
-    @segment_shape.u = 1.5
-    # elasticity
-    @segment_shape.e = 0
-    @space.add_static_shape @segment_shape
     @space.add_collision_func(:character, :ground) do |character, ground|
       @touching_ground = true
     end
@@ -50,8 +50,8 @@ class IslandWindow < Gosu::Window
     #@music.play(0.5, 1, true)
     @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
     @character_noframes = Gosu::Image.new('media/character.png')
-    initialize_physics
     @scene = YAML.load_file('scenes.yml')["beach0"]
+    initialize_physics
     @music = Gosu::Sample.new( self, "media/#{@scene["music"]}.ogg")
     @decorations = @scene["decorations"].map do |k, v|
       v = {"pos"=>[0, 0]}.merge(v.nil? ? {} : v) if v.nil? or v["pos"].nil?
@@ -105,7 +105,7 @@ class IslandWindow < Gosu::Window
     draw_decorations
     draw_character
     draw_bounding_box @character_shape.bb
-    draw_bounding_box @segment_shape.bb
+    @platforms.each { |platform| draw_bounding_box platform.bb }
 
   end
 
