@@ -1,0 +1,20 @@
+beach0:
+  music: beach
+  platforms:
+    ground:
+      pos: [700, 1100, 3000, 1100]
+  decorations:
+    background:
+      color: 0xff_A9E2F3
+      scale: [15, 15]
+    beach: null
+    sun: 
+      pos: [800, 0]
+    cloud:
+      pos: [100 - 100 * sin(t / 888), 0]
+      color: 0xcc_ffffff
+    cloud2:
+      pos: [1500 + 100 * sin(t / 342), 0]
+    watter2:
+      pos: [100 * sin(t / 200), 1000 - 50 * sin(t / 200)]
+      color: 0x88_ffffff
