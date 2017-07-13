@@ -12,6 +12,10 @@ class IslandWindow < Gosu::Window
     CP::Vec2.new a, b
   end
 
+  def v_from_array a
+    CP::Vec2.new a[0], a[1]
+  end
+
   def unmovable_body
     CP::Body.new(CP::INFINITY, CP::INFINITY)
   end
@@ -55,7 +59,7 @@ class IslandWindow < Gosu::Window
     character_body = CP::Body.new(10, CP::INFINITY)
     w = @character_noframes.width * 0.25
     h = @character_noframes.height * 0.25
-    @character_shape = CP::Shape::Poly.new(character_body, v_limits(w, h), v2(1000, 0))
+    @character_shape = CP::Shape::Poly.new(character_body, v_limits(w, h), v2(0, 0))
     @character_shape.collision_type = :character
     @character_shape.u = 1.5
     @space.add_body character_body
@@ -64,13 +68,10 @@ class IslandWindow < Gosu::Window
       @touching_ground = true
     end
     @space.add_collision_func(:character, :exit) do |character, ground|
-      @exit = true
-    end
-    @space.add_post_step_callback(1) do 
-      p "called"
-      if @exit
-        p "post"
+      @space.add_post_step_callback(1) do 
+        @level_i += 1
         delete_scene
+        next_scene
         initialize_scene
       end
     end
@@ -84,18 +85,25 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_scene
-    @exit = false
-    @scene = YAML.load_file('scenes.yml')["beach0"]
-    initialize_exit
     initialize_platforms
-    @music = Gosu::Sample.new( self, "media/#{@scene["music"]}.ogg")
+    @character_shape.body.p = v_from_array(@scene["entry"])
+    initialize_exit
     initialize_decorations
   end
 
+  def next_scene
+    @level ||= YAML.load_file('scenes.yml')["beach"]
+    @music ||= Gosu::Sample.new( self, "media/#{@level["music"]}.ogg")
+    @level_i ||= 0
+    scenes = @level["scenes"]
+    @scene = scenes[scenes.keys[@level_i]]
+  end
+
   def initialize
+    next_scene
     super( 2400, 1600, false )
     @calculator = Dentaku::Calculator.new
-    #@music.play(0.5, 1, true)
+    @music.play(0.5, 1, true)
     @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
     @character_noframes = Gosu::Image.new('media/character.png')
     initialize_physics
