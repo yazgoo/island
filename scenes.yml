@@ -5,6 +5,9 @@ beach:
       platforms:
         ground:
           pos: [700, 1100, 3000, 1100]
+        left:
+          pos: 
+              [600, 0, 700, 1100]
       entry: [800, 820]
       exit: [2350, 800, 50, 300]
       decorations:
@@ -25,21 +28,40 @@ beach:
     beach1:
       platforms:
         ground:
-          pos: [700, 1100, 3000, 1100]
-      entry: [800, 820]
+          pos: [0, 1100, 3000, 1100]
+        left:
+          pos: 
+              [0, 0, 0, 1100]
+      entry: [0, 820]
       exit: [2350, 800, 50, 300]
       decorations:
         background:
           color: 0xff_A9E2F3
           scale: [15, 15]
-        beach: null
-        sun: 
-          pos: [800, 0]
-        cloud:
-          pos: [100 - 100 * sin(t / 888), 0]
-          color: 0xcc_ffffff
-        cloud2:
-          pos: [1500 + 100 * sin(t / 342), 0]
-        watter2:
-          pos: [100 * sin(t / 200), 1000 - 50 * sin(t / 200)]
+        beach2:
+          pos: [0, 800]
+        flower0: 
+          scale: [0.5, 0.5]
+          pos: [200, 1100]
+        flower1: 
+          scale: [0.2, 0.2]
+          pos: [1200, 900]
+        deadtree: 
+          scale: [0.5, 0.5]
+          pos: [800, 1270 - 25 * sin(t / 200)]
+        watter3:
+          pos: [0, 1350 - 50 * sin(t / 200)]
           color: 0x88_ffffff
+        rock0:
+          scale: [0.5, 0.5]
+          pos: [800, 800]
+        rock2:
+          scale: [0.5, 0.5]
+          pos: [1500, 800]
+        smalltree:
+          scale: [0.2, 0.2]
+          angle: 30
+          pos: [1700, 1000]
+        cloud2:
+          pos: [1000 + 100 * sin(t / 342), 0]
+          scale: [-1, 1]

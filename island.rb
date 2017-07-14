@@ -26,7 +26,7 @@ class IslandWindow < Gosu::Window
       platform_shape = CP::Shape::Segment.new(unmovable_body, v2(pos[0], pos[1]), v2(pos[2], pos[3]), 3) 
       platform_shape.collision_type = :ground
       # friction
-      platform_shape.u = 1.5
+      platform_shape.u = 1.7
       # elasticity
       platform_shape.e = 0
       @space.add_static_shape platform_shape
@@ -45,9 +45,15 @@ class IslandWindow < Gosu::Window
    @space.add_static_shape @exit_shape
   end
 
+  def remove_shape_and_body shape
+    body = shape.body
+    body.remove_from_space @space
+    shape.remove_from_space @space
+  end
+
   def delete_scene
-    @space.remove_shape @exit_shape
-    @platforms.each { |platform| @space.remove_shape @platform }
+    remove_shape_and_body @exit_shape
+    @platforms.each { |platform| remove_shape_and_body platform }
     @decorations = []
   end
 
@@ -103,7 +109,7 @@ class IslandWindow < Gosu::Window
     next_scene
     super( 2400, 1600, false )
     @calculator = Dentaku::Calculator.new
-    @music.play(0.5, 1, true)
+    #@music.play(0.5, 1, true)
     @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
     @character_noframes = Gosu::Image.new('media/character.png')
     initialize_physics
@@ -146,7 +152,11 @@ class IslandWindow < Gosu::Window
       pos = v["pos"].map { |x| x.class == Fixnum ? x : @calculator.evaluate(x).to_f }
       color = v["color"]
       scale = v["scale"].nil? ? [1, 1] : v["scale"]
-      v[:image].draw(pos[0], pos[1], 0, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
+      if v["angle"].nil?
+        v[:image].draw(pos[0], pos[1], 0, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
+      else
+        v[:image].draw_rot(pos[0], pos[1], 0, v["angle"], 0, 0, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
+      end
     end
   end
 
