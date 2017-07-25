@@ -5,9 +5,14 @@ beach:
       platforms:
         ground:
           pos: [700, 1100, 3000, 1100]
+      walls:
         left:
           pos: 
               [600, 0, 700, 1100]
+      blocks:
+        first:
+          pos: [1400, 800, 1700, 1100]
+          direction: up
       entry: [800, 820]
       exit: [2350, 800, 50, 300]
       decorations:
@@ -29,6 +34,7 @@ beach:
       platforms:
         ground:
           pos: [0, 1100, 3000, 1100]
+      walls:
         left:
           pos: 
               [0, 0, 0, 1100]
@@ -42,10 +48,13 @@ beach:
           pos: [0, 800]
         flower0: 
           scale: [0.5, 0.5]
-          pos: [200, 1100]
+          pos: [200, 1000]
+          z: 2
+          shadow: true
         flower1: 
           scale: [0.2, 0.2]
           pos: [1200, 900]
+          shadow: true
         deadtree: 
           scale: [0.5, 0.5]
           pos: [800, 1270 - 25 * sin(t / 200)]
