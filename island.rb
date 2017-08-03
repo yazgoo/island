@@ -2,9 +2,9 @@
 require 'rubygems'
 require 'gosu'
 require 'chipmunk'
-require 'pry'
 require 'yaml'
 require 'dentaku'
+include CP
 
 class Hash
   def get_or_else key, default
@@ -12,7 +12,7 @@ class Hash
   end
 end
 
-class CP::Shape::Segment
+class Shape::Segment
   def friction=(f) self.u = f end
   def elasticity=(e) self.e = e end
 end
@@ -20,7 +20,7 @@ end
 class IslandWindow < Gosu::Window
 
   def v a, b
-    CP::Vec2.new a, b
+    Vec2.new a, b
   end
 
   def v_from_array a
@@ -31,11 +31,11 @@ class IslandWindow < Gosu::Window
     [[0, 0], [0, h], [w, h], [w, 0]].map { |x| v x[0], x[1]}
   end
 
-  def unmovable_body() CP::Body.new(CP::INFINITY, CP::INFINITY) end
+  def unmovable_body() Body.new(INFINITY, INFINITY) end
 
   def initialize_exit
    e = @scene["exit"]
-   @exit_shape = CP::Shape::Poly.new(unmovable_body, v_limits(e[2], e[3]), v(e[0], e[1]))
+   @exit_shape = Shape::Poly.new unmovable_body, v_limits(e[2], e[3]), v(e[0], e[1])
    @exit_shape.collision_type = :exit
    @space.add_static_shape @exit_shape
   end
@@ -53,13 +53,13 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_physics
-    @space = CP::Space.new
+    @space = Space.new
     @space.damping = 0.8
     @space.gravity = v(0, 1000)
-    character_body = CP::Body.new 10, CP::INFINITY  # infinite moment of inertia makes body non rotatable
+    character_body = Body.new 10, INFINITY  # infinite moment of inertia makes body non rotatable
     w = @character_noframes.width * 0.25
     h = @character_noframes.height * 0.25
-    @character_shape = CP::Shape::Poly.new(character_body, v_limits(w, h), v(0, 0))
+    @character_shape = Shape::Poly.new character_body, v_limits(w, h), v(0, 0)
     @character_shape.collision_type = :character
     @character_shape.u = 1.5
     @space.add_body character_body
@@ -77,9 +77,14 @@ class IslandWindow < Gosu::Window
     end
   end
 
-  def initialize_segment collision_type, conf, body = unmovable_body
+  def segment_shape conf, body
     pos = conf["pos"]
-    shape = CP::Shape::Segment.new(body, v(pos[0], pos[1]), v(pos[2], pos[3]), 3) 
+    body.pos = v(pos[0], pos[1])
+    Shape::Segment.new body, v(0, 0), v(pos[2] - pos[0], pos[3] - pos[1]), 3
+  end
+
+  def initialize_segment collision_type, conf, body = unmovable_body
+    shape = segment_shape conf, body
     shape.collision_type = collision_type
     shape.friction = 1.7
     shape.elasticity = 0
@@ -104,9 +109,8 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_block conf
-    pos = conf["pos"]
-    body = CP::Body.new 10, CP::INFINITY
-    shape = CP::Shape::Segment.new body, v(pos[0], pos[1]), v(pos[2], pos[3]), 3
+    body = Body.new 1000, INFINITY
+    shape = segment_shape conf, body
     shape.collision_type = :block
     @space.add_shape shape
     shape
@@ -136,7 +140,7 @@ class IslandWindow < Gosu::Window
 
   def next_scene
     @level ||= YAML.load_file('scenes.yml')["beach"]
-    @music ||= Gosu::Sample.new( self, "media/#{@level["music"]}.ogg")
+    @music ||= Gosu::Sample.new "media/#{@level["music"]}.ogg"
     @level_i ||= 0
     scenes = @level["scenes"]
     @scene = scenes[scenes.keys[@level_i]]
@@ -146,7 +150,6 @@ class IslandWindow < Gosu::Window
     next_scene
     super( 2400, 1600, false )
     @calculator = Dentaku::Calculator.new
-    #@music.play(0.5, 1, true)
     @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
     @character_noframes = Gosu::Image.new('media/character.png')
     initialize_physics
@@ -171,7 +174,7 @@ class IslandWindow < Gosu::Window
         @character_shape.body.apply_impulse(v(500.0, 0.0), v(0.0, 0.0))
         @direction = 1 
       end
-      @character = @character_frames[@t % @character_frames.size]
+      @character = @character_frames[Gosu.milliseconds / 100 % @character_frames.size]
     end
     x = @character_shape.bb.l
     x += @character_shape.bb.r - @character_shape.bb.l if @direction == -1
@@ -191,15 +194,14 @@ class IslandWindow < Gosu::Window
 
   def draw_blocks
     @blocks.each do |k, conf|
-      pos = conf["pos"]
-      conf[:image].draw(pos[0], pos[1], 0, 3, 3)
+      conf[:image].draw conf[:shape].bb.l, conf[:shape].bb.b, 0, 3, 3
     end
   end
 
   def draw_decorations
     @calculator.store(t: @t.to_f)
     @decorations.each do |k, conf|
-      pos = conf["pos"].map { |x| x.class == Fixnum ? x : @calculator.evaluate(x).to_f }
+      pos = conf["pos"].map { |x| x.class == Integer ? x : @calculator.evaluate(x).to_f }
       color = conf["color"]
       scale = conf["scale"].nil? ? [1, 1] : conf["scale"]
       z = conf["z"].nil? ? 0 : conf["z"]
@@ -228,7 +230,7 @@ class IslandWindow < Gosu::Window
   end
 
   def translate_shape shape
-    shape.body.apply_impulse v(0, -5000), v(0, 0)
+    shape.body.apply_impulse v(0, -50000), v(0, 0)
   end
   
   def translate_blocks
@@ -238,18 +240,23 @@ class IslandWindow < Gosu::Window
   def button_down( id )
     p id
     case id
-    when Gosu::KbLeft
+    when Gosu::KbLeft, Gosu::GpLeft
       @translation -= 1
-    when Gosu::KbRight
+    when Gosu::KbRight, Gosu::GpRight
       @translation = 1
-    when Gosu::KbUp
+    when Gosu::KbUp, Gosu::GpButton2
       @character_shape.body.apply_impulse(v(0, -5000.0), v(0.0, 0.0)) if @touching_ground
     when 20 #b
       @bounding_boxes = !@bounding_boxes
-    when 8 #p
-      binding.pry
     when 9 #e
       translate_blocks
+    when 52 #m
+      if @music_instance.nil?
+        @music_instance = @music.play(0.5, 1, true)
+      else
+        @music_instance.stop
+        @music_instance = nil
+      end
     when 41 #escape
       close
     end
