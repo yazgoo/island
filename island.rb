@@ -17,6 +17,11 @@ class Shape::Segment
   def elasticity=(e) self.e = e end
 end
 
+class Shape::Poly
+  def friction=(f) self.u = f end
+  def elasticity=(e) self.e = e end
+end
+
 class IslandWindow < Gosu::Window
 
   def v a, b
@@ -49,6 +54,7 @@ class IslandWindow < Gosu::Window
   def delete_scene
     remove_shape_and_body @exit_shape
     @platforms.each { |platform| remove_shape_and_body platform }
+    @blocks.each { |k, conf| remove_shape_and_body conf[:shape] }
     @decorations = []
   end
 
@@ -61,7 +67,7 @@ class IslandWindow < Gosu::Window
     h = @character_noframes.height * 0.25
     @character_shape = Shape::Poly.new character_body, v_limits(w, h), v(0, 0)
     @character_shape.collision_type = :character
-    @character_shape.u = 1.5
+    @character_shape.friction = 1.5
     @space.add_body character_body
     @space.add_shape @character_shape
     @space.add_collision_func(:character, :ground) do |character, ground|
@@ -94,7 +100,9 @@ class IslandWindow < Gosu::Window
 
   def initialize_segments collision_type, configuration
     configuration.map do |k, conf| 
-      initialize_segment(collision_type, conf) { |s| @space.add_static_shape s }
+      initialize_segment(collision_type, conf) do |s|
+        @space.add_static_shape s
+      end
     end
   end
 
@@ -109,9 +117,12 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_block conf
-    body = Body.new 1000, INFINITY
-    shape = segment_shape conf, body
+    size = conf["size"]
+    shape = Shape::Poly.new(Body.new(1000, INFINITY), v_limits(size[0], size[1]), v(0, 0))
+    shape.body.p = v_from_array(conf["pos"])
     shape.collision_type = :block
+    shape.friction = 1.5
+    @space.add_body shape.body
     @space.add_shape shape
     shape
   end
@@ -194,6 +205,7 @@ class IslandWindow < Gosu::Window
 
   def draw_blocks
     @blocks.each do |k, conf|
+      @space.reindex_shape conf[:shape]
       conf[:image].draw conf[:shape].bb.l, conf[:shape].bb.b, 0, 3, 3
     end
   end
@@ -230,7 +242,7 @@ class IslandWindow < Gosu::Window
   end
 
   def translate_shape shape
-    shape.body.apply_impulse v(0, -50000), v(0, 0)
+    shape.body.apply_impulse v(0, -700000), v(0, 0)
   end
   
   def translate_blocks
