@@ -1,37 +1,86 @@
 beach:
   music: beach
   scenes:
-    beach0:
-      platforms:
-        ground:
-          pos: [700, 1100, 3000, 1100]
-      walls:
-        left:
-          pos: 
-              [600, 0, 700, 1100]
-      blocks:
-        first:
-          pos: [1400, 700]
-          size: [300, 300] 
-          direction: up
-      entry: [800, 820]
-      exit: [2350, 800, 50, 300]
-      decorations:
-        background:
-          color: 0xff_A9E2F3
-          scale: [15, 15]
-        beach: null
-        sun: 
-          pos: [800, 0]
-        cloud:
-          pos: [100 - 100 * sin(t / 888), 0]
-          color: 0xcc_ffffff
-        cloud2:
-          pos: [1500 + 100 * sin(t / 342), 0]
-        watter2:
-          pos: [100 * sin(t / 200), 1000 - 50 * sin(t / 200)]
-          color: 0x88_ffffff
-    beach1:
+#    beach0:
+#      platforms:
+#        ground:
+#          pos: [700, 1100, 3000, 1100]
+#      walls:
+#        left:
+#          pos: 
+#              [600, 0, 700, 1100]
+#        right:
+#          pos: 
+#              [2300, 0, 2400, 1100]
+#      entry: [800, 820]
+#      exit: [2250, 600, 50, 300]
+#      letters:
+#        beach: [1200, 0, 100, 1100]
+#      decorations:
+#        background:
+#          color: 0xff_A9E2F3
+#          scale: [15, 15]
+#        beach: null
+#        sun: 
+#          pos: [800, 0]
+#        cloud:
+#          pos: [100 - 100 * sin(t / 888), 0]
+#          color: 0xcc_ffffff
+#        cloud2:
+#          pos: [1500 + 100 * sin(t / 342), 0]
+#        watter2:
+#          pos: [100 * sin(t / 200), 1000 - 50 * sin(t / 200)]
+#          color: 0x88_ffffff
+#    beach1:
+#      platforms:
+#        ground:
+#          pos: [0, 1100, 3000, 1100]
+#      walls:
+#        left:
+#          pos: 
+#              [0, 0, 0, 1100]
+#      blocks:
+#        rock4:
+#          pos: [1400, 700]
+#          size: [400, 300] 
+#          direction: up
+#      entry: [0, 820]
+#      exit: [1800, 600, 50, 300]
+#      decorations:
+#        background:
+#          color: 0xff_A9E2F3
+#          scale: [15, 15]
+#        beach2:
+#          pos: [0, 800]
+#        flower0: 
+#          scale: [0.5, 0.5]
+#          pos: [200, 1000]
+#          z: 2
+#          shadow: true
+#        flower1: 
+#          scale: [0.2, 0.2]
+#          pos: [1200, 900]
+#          shadow: true
+#        deadtree: 
+#          scale: [0.5, 0.5]
+#          pos: [800, 1270 - 25 * sin(t / 200)]
+#        watter3:
+#          pos: [0, 1350 - 50 * sin(t / 200)]
+#          color: 0x88_ffffff
+#        rock0:
+#          scale: [0.5, 0.5]
+#          pos: [800, 800]
+#        rock2:
+#          scale: [0.5, 0.5]
+#          pos: [1500, 800]
+#        smalltree:
+#          scale: [0.2, 0.2]
+#          angle: 30
+#          pos: [1700, 1000]
+#        cloud2:
+#          pos: [1000 + 100 * sin(t / 342), 0]
+#          scale: [-1, 1]
+    beach2:
       platforms:
         ground:
           pos: [0, 1100, 3000, 1100]
@@ -39,39 +88,14 @@ beach:
         left:
           pos: 
               [0, 0, 0, 1100]
+      blocks:
+        rock4:
+          pos: [1400, 700]
+          size: [400, 300] 
+          direction: up
       entry: [0, 820]
-      exit: [2350, 800, 50, 300]
+      exit: [1800, 600, 50, 300]
       decorations:
         background:
           color: 0xff_A9E2F3
           scale: [15, 15]
-        beach2:
-          pos: [0, 800]
-        flower0: 
-          scale: [0.5, 0.5]
-          pos: [200, 1000]
-          z: 2
-          shadow: true
-        flower1: 
-          scale: [0.2, 0.2]
-          pos: [1200, 900]
-          shadow: true
-        deadtree: 
-          scale: [0.5, 0.5]
-          pos: [800, 1270 - 25 * sin(t / 200)]
-        watter3:
-          pos: [0, 1350 - 50 * sin(t / 200)]
-          color: 0x88_ffffff
-        rock0:
-          scale: [0.5, 0.5]
-          pos: [800, 800]
-        rock2:
-          scale: [0.5, 0.5]
-          pos: [1500, 800]
-        smalltree:
-          scale: [0.2, 0.2]
-          angle: 30
-          pos: [1700, 1000]
-        cloud2:
-          pos: [1000 + 100 * sin(t / 342), 0]
-          scale: [-1, 1]
