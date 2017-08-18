@@ -81,8 +81,17 @@ class IslandWindow < Gosu::Window
 
   G = 1000
 
+  def load_scene
+    delete_scene
+    next_scene
+    initialize_scene
+  end
+
   def initialize_collisions_callbacks
     @space.add_collision_func(:character, :ground) do |character, ground|
+      @touching_ground = true
+    end
+    @space.add_collision_func(:character, :block) do |character, ground|
       @touching_ground = true
     end
     @space.add_collision_func(:character, :letter) do |character, letter_shape|
@@ -97,9 +106,7 @@ class IslandWindow < Gosu::Window
     @space.add_collision_func(:character, :exit) do |character, ground|
       @space.add_post_step_callback(1) do 
         @level_i += 1
-        delete_scene
-        next_scene
-        initialize_scene
+        load_scene
       end if @up
     end
   end
@@ -114,6 +121,7 @@ class IslandWindow < Gosu::Window
     @character_shape = Shape::Poly.new character_body, v_limits(w, h), v(0, 0)
     @character_shape.collision_type = :character
     @character_shape.friction = 1.5
+    @character_shape.body.v_limit = 500
     @space.add_body character_body
     @space.add_shape @character_shape
     initialize_collisions_callbacks
@@ -172,7 +180,7 @@ class IslandWindow < Gosu::Window
   end
 
   def merge_image name, conf
-    image = Gosu::Image.new("media/#{name}.png")
+    image = Gosu::Image.new("media/#{name.sub(/-.*/, "")}.png")
     size = conf.get_or_else "size", [image.width, image.height]
     scale = image_scale image, size
     {scale: scale, image: image}.merge(conf)
@@ -183,7 +191,7 @@ class IslandWindow < Gosu::Window
     shape = Shape::Poly.new(Body.new(100, INFINITY),
                             v_limits(size[0], size[1]), v_from_array(conf["pos"]))
     shape.collision_type = :block
-    shape.friction = 2
+    shape.friction = 1.7
     @space.add_body shape.body
     @space.add_shape shape
     shape
@@ -212,13 +220,21 @@ class IslandWindow < Gosu::Window
     initialize_decorations
   end
 
+  def scenes_mtime
+    File.mtime @@scenes_path
+  end
+
   def next_scene
-    @level ||= YAML.load_file('scenes.yml')["beach"]
+    @@scenes_path = 'scenes.yml'
+    @level = YAML.load_file(@@scenes_path)["beach"]
+    @last_scenes_mtime = scenes_mtime
     @music ||= Gosu::Sample.new "media/#{@level["music"]}.ogg"
-    @level_i ||= 0
+    @level_i ||= (ARGV[0] || 0).to_i
     scenes = @level["scenes"]
     @scene = scenes[scenes.keys[@level_i]]
     @letter = @letter_image = @letter_text = nil
+    @crystal_enabled = false
+    @crystal_discharged = false
   end
 
   def initialize
@@ -238,7 +254,13 @@ class IslandWindow < Gosu::Window
   end
 
   def ground_y pos
-    @scene["platforms"]["ground"]["pos"][1]
+    @scene["platforms"].each do |k, v|
+      platform = v["pos"]
+      if platform[0] < pos[0] and pos[0] < platform[2]
+        return platform[1]
+      end
+    end
+    0
   end
 
   def shadow_y pos, image, scale
@@ -324,6 +346,13 @@ class IslandWindow < Gosu::Window
     @letter_image.draw pos[0], pos[1], 0, scale, scale
   end
 
+  def configuration_updated
+    current_scenes_mtime = scenes_mtime
+    res = @last_scenes_mtime < current_scenes_mtime
+    @last_scenes_mtime = current_scenes_mtime
+    res
+  end
+
   def draw
     run_timeout_actions
     @touching_ground = false
@@ -341,6 +370,7 @@ class IslandWindow < Gosu::Window
       @blocks.each { |k, block| draw_bounding_box block[:shape] }
     end
     draw_letter if @letter_name
+    load_scene if @t % 50 == 0 and configuration_updated
   end
 
   def compensate_mass shape
@@ -402,6 +432,8 @@ class IslandWindow < Gosu::Window
         @character_shape.body.apply_impulse(v(0, -5000.0), v(0.0, 0.0)) if @touching_ground
       when Gosu::KbUp
         @up = true
+      when 15 #r
+        load_scene
       when 20 #b
         @bounding_boxes = !@bounding_boxes
       when 9 #e
