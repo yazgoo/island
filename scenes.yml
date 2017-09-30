@@ -99,11 +99,11 @@ beach:
       blocks:
         rock4:
           pos: [1200, 700]
-          size: [100, 100] 
+          size: [100, 80] 
           direction: up
-        rock3:
+        rock4-2:
           pos: [1500, 700]
-          size: [200, 200] 
+          size: [200, 160] 
           direction: up
       exit: [2200, 400, 50, 300]
       decorations:
