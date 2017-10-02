@@ -6,40 +6,20 @@ require 'yaml'
 require 'dentaku'
 include CP
 
-class Hash
-  def get_or_else key, default
-    self[key] || default
-  end
-end
-
-class Shape::Segment
-  def friction=(f) self.u = f end
-  def elasticity=(e) self.e = e end
-end
-
-class Shape::Poly
-  def friction=(f) self.u = f end
-  def elasticity=(e) self.e = e end
-end
-
 class IslandWindow < Gosu::Window
+
+  G = 1000
 
   def v a, b
     Vec2.new a, b
   end
 
-  def v_from_array a
-    v a[0], a[1]
-  end
-
   def v_limits w, h
-    [[0, 0], [0, h], [w, h], [w, 0]].map { |x| v x[0], x[1]}
+    [[0, 0], [0, h], [w, h], [w, 0]].map { |x| v(*x) }
   end
-
-  def unmovable_body() Body.new(INFINITY, INFINITY) end
 
   def initialize_sensor_shape e, kind
-    exit_shape = Shape::Poly.new unmovable_body, v_limits(e[2], e[3]), v(e[0], e[1])
+    exit_shape = Shape::Poly.new Body.new(INFINITY, INFINITY), v_limits(*e[2..3]), v(*e[0..1])
     exit_shape.collision_type = kind
     exit_shape.sensor = true
     @space.add_static_shape exit_shape
@@ -52,7 +32,7 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_letters
-    letters = @scene.get_or_else "letters", []
+    letters = @scene["letters"] || []
     @letters = Hash[letters.map do |name, position|
       shape = initialize_sensor_shape(position, :letter)
       shape.object = name
@@ -61,13 +41,12 @@ class IslandWindow < Gosu::Window
   end
 
   def remove_shape_and_body shape, static = true
-    body = shape.body
     if static
       @space.remove_static_shape shape
     else
       @space.remove_shape shape
     end
-    @space.remove_body body
+    @space.remove_body shape.body
   end
 
   def delete_scene
@@ -79,12 +58,26 @@ class IslandWindow < Gosu::Window
     @timeout_actions = []
   end
 
-  G = 1000
-
   def load_scene
     delete_scene
     next_scene
     initialize_scene
+  end
+
+  def letter_collision_callback letter_shape
+      name = letter_shape.object
+      letter = @letters[name] || {}
+      if not letter[:read]
+        letter[:read] = true
+        @letter_name = name
+      end
+  end
+
+  def exit_collision_callback
+      @space.add_post_step_callback(1) do 
+        @level_i += 1
+        load_scene
+      end if @up
   end
 
   def initialize_collisions_callbacks
@@ -95,19 +88,10 @@ class IslandWindow < Gosu::Window
       @touching_ground = true
     end
     @space.add_collision_func(:character, :letter) do |character, letter_shape|
-      name = letter_shape.object
-      letter = @letters.get_or_else name, {}
-      if not letter[:read]
-        puts "letter collision #{name}"
-        letter[:read] = true
-        @letter_name = name
-      end
+      letter_collision_callback letter_shape
     end
     @space.add_collision_func(:character, :exit) do |character, ground|
-      @space.add_post_step_callback(1) do 
-        @level_i += 1
-        load_scene
-      end if @up
+      exit_collision_callback
     end
   end
 
@@ -120,7 +104,7 @@ class IslandWindow < Gosu::Window
     h = @character_noframes.height * 0.25
     @character_shape = Shape::Poly.new character_body, v_limits(w, h), v(0, 0)
     @character_shape.collision_type = :character
-    @character_shape.friction = 1.5
+    @character_shape.u = 1.5
     @character_shape.body.v_limit = 500
     @space.add_body character_body
     @space.add_shape @character_shape
@@ -129,15 +113,15 @@ class IslandWindow < Gosu::Window
 
   def segment_shape conf, body
     pos = conf["pos"]
-    body.pos = v(pos[0], pos[1])
+    body.pos = v(*pos[0..1])
     Shape::Segment.new body, v(0, 0), v(pos[2] - pos[0], pos[3] - pos[1]), 3
   end
 
-  def initialize_segment collision_type, conf, body = unmovable_body
+  def initialize_segment collision_type, conf, body = Body.new(INFINITY, INFINITY)
     shape = segment_shape conf, body
     shape.collision_type = collision_type
-    shape.friction = 1.7
-    shape.elasticity = 0
+    shape.u = 1.7
+    shape.e = 0
     yield shape
     shape
   end
@@ -160,7 +144,7 @@ class IslandWindow < Gosu::Window
         k = (i + j) % @rocks.size
         scale = scales[k]
         image = @rocks[k]
-        image.draw x + j * delta + (i * delta / 2), y - i * delta, 0, scale[0], scale[1]
+        image.draw x + j * delta + (i * delta / 2), y - i * delta, 0, *scale[0..1]
       end
     end
   end
@@ -181,7 +165,7 @@ class IslandWindow < Gosu::Window
 
   def merge_image name, conf
     image = Gosu::Image.new("media/#{name.sub(/-.*/, "")}.png")
-    size = conf.get_or_else "size", [image.width, image.height]
+    size = conf["size"] || [image.width, image.height]
     scale = image_scale image, size
     {scale: scale, image: image}.merge(conf)
   end
@@ -189,9 +173,9 @@ class IslandWindow < Gosu::Window
   def initialize_block conf
     size = conf["size"]
     shape = Shape::Poly.new(Body.new(100, INFINITY),
-                            v_limits(size[0], size[1]), v_from_array(conf["pos"]))
+                            v_limits(*size[0..1]), v(*conf["pos"]))
     shape.collision_type = :block
-    shape.friction = 1.7
+    shape.u = 1.7
     @space.add_body shape.body
     @space.add_shape shape
     shape
@@ -199,7 +183,7 @@ class IslandWindow < Gosu::Window
 
 
   def initialize_blocks
-    @blocks = @scene.get_or_else("blocks", []).map do |name, conf|
+    @blocks = (@scene["blocks"] || []).map do |name, conf|
       [name, {shape: initialize_block(conf)}.merge(merge_image(name, conf))]
     end
   end
@@ -214,20 +198,16 @@ class IslandWindow < Gosu::Window
   def initialize_scene
     initialize_platforms
     initialize_blocks
-    @character_shape.body.p = v_from_array(@scene["entry"])
+    @character_shape.body.p = v(*@scene["entry"])
     initialize_exit
     initialize_letters
     initialize_decorations
   end
 
-  def scenes_mtime
-    File.mtime @@scenes_path
-  end
-
   def next_scene
     @@scenes_path = 'scenes.yml'
     @level = YAML.load_file(@@scenes_path)["beach"]
-    @last_scenes_mtime = scenes_mtime
+    @last_scenes_mtime = File.mtime @@scenes_path
     @music ||= Gosu::Sample.new "media/#{@level["music"]}.ogg"
     @level_i ||= (ARGV[0] || 0).to_i
     scenes = @level["scenes"]
@@ -300,19 +280,18 @@ class IslandWindow < Gosu::Window
     draw_shadow [scale, scale], @character, [x, @character_shape.body.p.y], @direction
   end
 
-  def with(x) yield(x) end
-
   def draw_bounding_box shape, color = Gosu::Color::RED,
-    points = with(shape.bb) { |a| [[a.l, a.t], [a.r, a.t], [a.r, a.b], [a.l, a.b]] }
+    a = shape.bb
+    points = [[a.l, a.t], [a.r, a.t], [a.r, a.b], [a.l, a.b]]
     points.each_with_index do |point, i|
       n = (i + 1) % points.size
-      draw_line point[0], point[1], color, points[n][0], points[n][1], color
+      draw_line *point[0..1], color, *points[n][0..1], color
     end
   end
 
   def draw_blocks
     @blocks.each do |k, conf|
-      conf[:image].draw conf[:shape].bb.l, conf[:shape].bb.b, 0, conf[:scale][0], conf[:scale][1]
+      conf[:image].draw conf[:shape].bb.l, conf[:shape].bb.b, 0, *conf[:scale][0..1]
       draw_shadow conf[:scale], conf[:image], [conf[:shape].bb.l, conf[:shape].bb.b]
     end
   end
@@ -325,9 +304,9 @@ class IslandWindow < Gosu::Window
       scale = conf["scale"].nil? ? [1, 1] : conf["scale"]
       z = conf["z"].nil? ? 0 : conf["z"]
       if conf["angle"].nil?
-        conf[:image].draw(pos[0], pos[1], z, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
+        conf[:image].draw(*pos[0..1], z, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
       else
-        conf[:image].draw_rot(pos[0], pos[1], z, conf["angle"], 0, 0, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
+        conf[:image].draw_rot(*pos[0..1], z, conf["angle"], 0, 0, *scale[0..1], color.nil? ? 0xff_ffffff : color)
       end
       draw_shadow scale, conf[:image], pos, 1, false if not conf["shadow"].nil?
     end
@@ -343,11 +322,11 @@ class IslandWindow < Gosu::Window
     @letter_text.draw 650, 100, 0, 1, 1, 0xff_000000
     pos = image["pos"]
     scale = image["scale"]
-    @letter_image.draw pos[0], pos[1], 0, scale, scale
+    @letter_image.draw *pos[0..1], 0, scale, scale
   end
 
   def configuration_updated
-    current_scenes_mtime = scenes_mtime
+    current_scenes_mtime = File.mtime @@scenes_path
     res = @last_scenes_mtime < current_scenes_mtime
     @last_scenes_mtime = current_scenes_mtime
     res
@@ -381,8 +360,7 @@ class IslandWindow < Gosu::Window
   def run_timeout_actions
     to_remove = []
     now = Gosu.milliseconds
-    @timeout_actions ||= []
-    @timeout_actions.each do |action|
+    (@timeout_actions ||= []).each do |action|
       if action[0] < now
         to_remove << action
         action[1].call
@@ -445,7 +423,7 @@ class IslandWindow < Gosu::Window
           @music_instance.stop
           @music_instance = nil
         end
-      when 41 #escape
+      when Gosu::KbEscape
         close
       end
     end
