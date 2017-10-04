@@ -125,19 +125,7 @@ class IslandWindow < Gosu::Window
   end
 
   def draw_exit
-    bottom = @exit[1] + @exit[3]
-    left = @exit[0] 
-    size = 30
-    dx = 20
-    scales = @rocks.map { |image| image_scale image, [size, size] }
-    x = left
-    y = bottom
-    n = 5
-    n.times do |i|
-      (n - i).times.map { |j| [j, (i + j) % @rocks.size] }.each do |j, k|
-        @rocks[k].draw x + j * dx + (i * dx / 2), y - i * dx, 0, *scales[k][0..1]
-      end
-    end
+    @white_circle.draw @exit_shape.body.p.x, @exit_shape.body.p.y
   end
 
   def initialize_segments collision_type, configuration
@@ -214,7 +202,6 @@ class IslandWindow < Gosu::Window
     @calculator = Dentaku::Calculator.new
     @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
     @character_noframes = Gosu::Image.new('media/character.png')
-    @rocks = [0,2,3,4].map { |i| Gosu::Image.new("media/rock#{i}.png") }
     @circle = Gosu::Image.new('media/white_circle.png')
     @sheet = Gosu::Image.new('media/sheet.png')
     initialize_physics
