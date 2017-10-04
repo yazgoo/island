@@ -81,19 +81,13 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_collisions_callbacks
-    @space.add_collision_func(:character, :ground) do |character, ground|
-      @touching_ground = true
-    end
-    @space.add_collision_func(:character, :block) do |character, ground|
-      @touching_ground = true
-    end
-    @space.add_collision_func(:character, :letter) do |character, letter_shape|
-      letter_collision_callback letter_shape
-    end
-    @space.add_collision_func(:character, :exit) do |character, ground|
-      exit_collision_callback
-    end
+    {
+      [:ground, :block] => ->(b) { @touching_ground = true },
+      [:exit] => ->(e) { exit_collision_callback },
+      [:letter] => ->(l) { letter_collision_callback(l) },
+    }.map { |k, v| k.each { |j| @space.add_collision_func(:character, j) { |c, o| v.call(o) }  } }
   end
+
 
   def initialize_physics
     @space = Space.new
@@ -134,17 +128,14 @@ class IslandWindow < Gosu::Window
     bottom = @exit[1] + @exit[3]
     left = @exit[0] 
     size = 30
-    delta = 20
+    dx = 20
     scales = @rocks.map { |image| image_scale image, [size, size] }
     x = left
     y = bottom
     n = 5
     n.times do |i|
-      (n - i).times do |j|
-        k = (i + j) % @rocks.size
-        scale = scales[k]
-        image = @rocks[k]
-        image.draw x + j * delta + (i * delta / 2), y - i * delta, 0, *scale[0..1]
+      (n - i).times.map { |j| [j, (i + j) % @rocks.size] }.each do |j, k|
+        @rocks[k].draw x + j * dx + (i * dx / 2), y - i * dx, 0, *scales[k][0..1]
       end
     end
   end
