@@ -1,4 +1,9 @@
 #!/usr/bin/env ruby
+class Object
+  def __set(hash) hash.each { |k, v| send "#{k.to_s}=", v } end
+  def dim() [width, height] end
+end
+
 require 'rubygems'
 require 'gosu'
 require 'chipmunk'
@@ -8,162 +13,118 @@ include CP
 
 class IslandWindow < Gosu::Window
 
-  G = 1000
+  G = Vec2.new(0, 1000)
+  CharaScale = 0.25
 
-  def v a, b
-    Vec2.new a, b
+  def returning stuff
+    yield stuff
+    stuff
   end
 
   def v_limits w, h
-    [[0, 0], [0, h], [w, h], [w, 0]].map { |x| v(*x) }
+    [[0, 0], [0, h], [w, h], [w, 0]].map { |x| Vec2.new(*x) }
   end
 
-  def initialize_sensor_shape e, kind
-    exit_shape = Shape::Poly.new Body.new(INFINITY, INFINITY), v_limits(*e[2..3]), v(*e[0..1])
-    exit_shape.collision_type = kind
-    exit_shape.sensor = true
-    @space.add_static_shape exit_shape
-    exit_shape
+  def add_shape shape, u, collision_type
+    @character_shape.__set(u: u, collision_type: collision_type)
+    @space.add_body shape.body
+    returning(shape) { @space.add_shape shape }
   end
 
-  def initialize_exit
-    @exit = @scene["exit"]
-    @exit_shape = initialize_sensor_shape @exit, :exit
+  def initialize_sensor_shape e, collision_type, object = nil
+    returning(Shape::Poly.new Body.new(INFINITY, INFINITY), v_limits(*e[2..3]), Vec2.new(*e[0..1])) do |shape|
+      shape.__set(collision_type: collision_type, sensor: true, object: object)
+      @space.add_static_shape shape
+    end
   end
 
   def initialize_letters
-    letters = @scene["letters"] || []
-    @letters = Hash[letters.map do |name, position|
-      shape = initialize_sensor_shape(position, :letter)
-      shape.object = name
-      [name, {shape: shape}]
-    end]
+    @letters = Hash[(@scene["letters"] || []).map do |name, position|
+                      [name, {shape: initialize_sensor_shape(position, :letter, name)}]
+                    end]
   end
 
   def remove_shape_and_body shape, static = true
-    if static
-      @space.remove_static_shape shape
-    else
-      @space.remove_shape shape
-    end
+    static ?  @space.remove_static_shape(shape) : @space.remove_shape(shape)
     @space.remove_body shape.body
   end
 
   def delete_scene
-    remove_shape_and_body @exit_shape
-    @platforms.each { |platform| remove_shape_and_body platform }
-    @blocks.each { |k, conf| remove_shape_and_body conf[:shape], false }
-    @letters.each { |k, conf| remove_shape_and_body conf[:shape] }
+    each_scene_shape { |shape| remove_shape_and_body shape, shape.collision_type != :block }
     @decorations = []
     @timeout_actions = []
   end
 
   def load_scene
-    delete_scene
-    next_scene
-    initialize_scene
+    %w(delete next initialize).each { |action| send "#{action}_scene" }
   end
 
-  def letter_collision_callback letter_shape
-      name = letter_shape.object
-      letter = @letters[name] || {}
-      if not letter[:read]
-        letter[:read] = true
-        @letter_name = name
-      end
+  def letter_collision_callback letter_name
+    letter = @letters[letter_name] || {}
+    @letter_name = letter_name if not letter[:read]
+    letter[:read] = true
   end
 
   def exit_collision_callback
-      @space.add_post_step_callback(1) do 
-        @level_i += 1
-        load_scene
-      end if @up
+    @space.add_post_step_callback(1) do
+      @level_i += 1
+      load_scene
+    end if @up
   end
 
   def initialize_collisions_callbacks
     {
       [:ground, :block] => ->(b) { @touching_ground = true },
       [:exit] => ->(e) { exit_collision_callback },
-      [:letter] => ->(l) { letter_collision_callback(l) },
+      [:letter] => ->(l) { letter_collision_callback(l.object) },
     }.map { |k, v| k.each { |j| @space.add_collision_func(:character, j) { |c, o| v.call(o) }  } }
   end
 
-
   def initialize_physics
     @space = Space.new
-    @space.damping = 0.8
-    @space.gravity = v(0, G)
-    character_body = Body.new 10, INFINITY  # infinite moment of inertia makes body non rotatable
-    w = @character_noframes.width * 0.25
-    h = @character_noframes.height * 0.25
-    @character_shape = Shape::Poly.new character_body, v_limits(w, h), v(0, 0)
-    @character_shape.collision_type = :character
-    @character_shape.u = 1.5
+    @space.__set(damping: 0.8, gravity: G)
+    dim = @images[:character][0].dim.map { |x| x * CharaScale }
+    @character_shape = Shape::Poly.new Body.new(10, INFINITY), v_limits(*dim), Vec2.new(0, 0)
     @character_shape.body.v_limit = 500
-    @space.add_body character_body
-    @space.add_shape @character_shape
-    initialize_collisions_callbacks
+    add_shape @character_shape, 1.5, :character
   end
 
-  def segment_shape conf, body
-    pos = conf["pos"]
-    body.pos = v(*pos[0..1])
-    Shape::Segment.new body, v(0, 0), v(pos[2] - pos[0], pos[3] - pos[1]), 3
+  def segment_shape pos, body
+    body.pos = Vec2.new(*pos[0..1])
+    Shape::Segment.new body, Vec2.new(0, 0), Vec2.new(pos[2] - pos[0], pos[3] - pos[1]), 3
   end
 
   def initialize_segment collision_type, conf, body = Body.new(INFINITY, INFINITY)
-    shape = segment_shape conf, body
-    shape.collision_type = collision_type
-    shape.u = 1.7
-    shape.e = 0
-    yield shape
-    shape
-  end
-
-  def image_scale image, size
-    [size[0].to_f / image.width, size[1].to_f / image.height]
-  end
-
-  def draw_exit
-    @white_circle.draw @exit_shape.body.p.x, @exit_shape.body.p.y
-  end
-
-  def initialize_segments collision_type, configuration
-    configuration.map do |k, conf| 
-      initialize_segment(collision_type, conf) do |s|
-        @space.add_static_shape s
-      end
+    returning(segment_shape conf["pos"], body) do |shape|
+      shape.__set(collision_type: collision_type, u: 1.7, e: 0)
+      yield shape
     end
   end
 
+  def image_scale image, size
+    size.each_with_index.map { |s, i| s.to_f / image.dim[i] }
+  end
+
+  def draw_exit
+    @images[:character][0].draw(*@exit_shape.object[0..1], 0, 0.2, 0.2)
+  end
+
   def initialize_platforms
-    @platforms = {ground: @scene["platforms"], wall: @scene["walls"]}.map do |k, conf|
-      initialize_segments k, conf
+    @platforms = {ground: @scene["platforms"], wall: @scene["walls"]}.map do |type, confs|
+      confs.map { |k, conf| initialize_segment(type, conf) { |s| @space.add_static_shape s } }
     end.flatten
   end
 
   def merge_image name, conf
     image = Gosu::Image.new("media/#{name.sub(/-.*/, "")}.png")
-    size = conf["size"] || [image.width, image.height]
-    scale = image_scale image, size
-    {scale: scale, image: image}.merge(conf)
+    {scale: image_scale(image, (conf["size"] || image.dim)), image: image}.merge(conf)
   end
-
-  def initialize_block conf
-    size = conf["size"]
-    shape = Shape::Poly.new(Body.new(100, INFINITY),
-                            v_limits(*size[0..1]), v(*conf["pos"]))
-    shape.collision_type = :block
-    shape.u = 1.7
-    @space.add_body shape.body
-    @space.add_shape shape
-    shape
-  end
-
 
   def initialize_blocks
     @blocks = (@scene["blocks"] || []).map do |name, conf|
-      [name, {shape: initialize_block(conf)}.merge(merge_image(name, conf))]
+      [name, {shape: add_shape(Shape::Poly.new(
+        Body.new(100, INFINITY), v_limits(*conf["size"][0..1]), Vec2.new(*conf["pos"])
+      ), 1.7, :block)}.merge(merge_image(name, conf))]
     end
   end
 
@@ -175,95 +136,69 @@ class IslandWindow < Gosu::Window
   end
 
   def initialize_scene
-    initialize_platforms
-    initialize_blocks
-    @character_shape.body.p = v(*@scene["entry"])
-    initialize_exit
-    initialize_letters
-    initialize_decorations
+    %w(platforms blocks letters decorations).each { |what| send "initialize_#{what}" }
+    @exit_shape = initialize_sensor_shape @scene["exit"], :exit, @scene["exit"]
+    @character_shape.body.p = Vec2.new(*@scene["entry"])
   end
 
   def next_scene
     @@scenes_path = 'scenes.yml'
     @level = YAML.load_file(@@scenes_path)["beach"]
-    @last_scenes_mtime = File.mtime @@scenes_path
+    @scenes_mtime = File.mtime @@scenes_path
     @music ||= Gosu::Sample.new "media/#{@level["music"]}.ogg"
-    @level_i ||= (ARGV[0] || 0).to_i
-    scenes = @level["scenes"]
-    @scene = scenes[scenes.keys[@level_i]]
+    @scene = @level["scenes"].values[@level_i ||= (ARGV[0] || 0).to_i]
     @letter = @letter_image = @letter_text = nil
-    @crystal_enabled = false
-    @crystal_discharged = false
+    @crystal_status = :disabled
   end
 
   def initialize
     next_scene
-    super( 2400, 1600, false )
-    @calculator = Dentaku::Calculator.new
-    @character_frames = Dir.glob('media/character/*.png').map { |x| Gosu::Image.new(x) }
-    @character_noframes = Gosu::Image.new('media/character.png')
-    @circle = Gosu::Image.new('media/white_circle.png')
-    @sheet = Gosu::Image.new('media/sheet.png')
-    initialize_physics
-    initialize_scene
-    @t = 0
-    @translation = 0
+    super(2400, 1600, false)
+    @images = Hash[%i(characters character white_circle sheet letter).map do |path|
+                     [path, Dir.glob("media/#{path.to_s.sub(/s$/, "/*")}.png").map { |x| Gosu::Image.new(x) }]
+                   end]
+    %w(physics collisions_callbacks scene).each { |what| send "initialize_#{what}" }
+    @t = @translation = 0
     @direction = 1
   end
 
   def ground_y pos
-    @scene["platforms"].each do |k, v|
-      platform = v["pos"]
-      if platform[0] < pos[0] and pos[0] < platform[2]
-        return platform[1]
-      end
+    @scene["platforms"].map { |_, v| v["pos"] }.reduce(0) do |b, plat|
+      (plat[0] < pos[0] and pos[0] < plat[2]) ?  b + plat[1] : 0
     end
-    0
-  end
-
-  def shadow_y pos, image, scale
-    ground = ground_y pos
-    delta = ground - image.height * scale[1] - pos[1]
-    ground - image.height * scale[1] + delta
   end
 
   def draw_shadow scale, image, pos, direction = 1, from_ground = true
-    y = from_ground ? shadow_y(pos, image, scale) : pos[1]
-    image.draw_rot(pos[0], y, 0, 180, 0, 2, -1.0 * scale[0] * direction, scale[1], 0x11_000000)
+    y = from_ground ? 2 * (ground_y(pos) - image.height * scale[1]) - pos[1] : pos[1]
+    image.draw_rot pos[0], y, 0, 180, 0, 2, -1.0 * scale[0] * direction, scale[1], 0x11_000000
   end
 
   def draw_crystal_power x, y, scale
     size = 3 * scale + (0.2 * scale * Math::sin(@t / 20))
-    @circle.draw(x, @character_shape.body.p.y, 0, size * @direction, size, 0x22_ff0000)
+    @images[:white_circle][0].draw(x, @character_shape.body.p.y, 0, size * @direction, size, 0x22_ff0000)
+  end
+
+  def move_character
+    if @translation == 0
+      @character = @images[:character][0]
+    elsif @touching_ground
+      @direction = @translation < 0 ? -1 : 1
+      @character_shape.body.apply_impulse Vec2.new(@direction * 500.0, 0.0), Vec2.new(0.0, 0.0)
+      @character = @images[:characters][Gosu.milliseconds / 100 % @images[:characters].size]
+    end
   end
 
   def draw_character
-    if @translation == 0
-      @character = @character_noframes
-    elsif @touching_ground
-      if @translation < 0
-        @character_shape.body.apply_impulse(v(-500.0, 0.0), v(0.0, 0.0))
-        @direction = -1 
-      elsif @translation > 0
-        @character_shape.body.apply_impulse(v(500.0, 0.0), v(0.0, 0.0))
-        @direction = 1 
-      end
-      @character = @character_frames[Gosu.milliseconds / 100 % @character_frames.size]
-    end
-    x = @character_shape.bb.l
-    x += @character_shape.bb.r - @character_shape.bb.l if @direction == -1
-    scale = 0.25
-    draw_crystal_power x, @character_shape.body.p.y, scale if @crystal_enabled
-    @character.draw(x, @character_shape.body.p.y, 0, scale * @direction, scale)
-    draw_shadow [scale, scale], @character, [x, @character_shape.body.p.y], @direction
+    x = @direction == -1 ? @character_shape.bb.r : @character_shape.bb.l
+    draw_crystal_power x, @character_shape.body.p.y, CharaScale if @crystal_status == :enabled
+    @character.draw x, @character_shape.body.p.y, 0, CharaScale * @direction, CharaScale
+    draw_shadow [CharaScale, CharaScale], @character, [x, @character_shape.body.p.y], @direction
   end
 
-  def draw_bounding_box shape, color = Gosu::Color::RED,
-    a = shape.bb
-    points = [[a.l, a.t], [a.r, a.t], [a.r, a.b], [a.l, a.b]]
+  def draw_bounding_box bb, color = Gosu::Color::RED
+    points = [[bb.l, bb.t], [bb.r, bb.t], [bb.r, bb.b], [bb.l, bb.b]]
     points.each_with_index do |point, i|
-      n = (i + 1) % points.size
-      draw_line *point[0..1], color, *points[n][0..1], color
+      draw_line(*point, color, *points[(i + 1) % points.size], color)
     end
   end
 
@@ -275,139 +210,101 @@ class IslandWindow < Gosu::Window
   end
 
   def draw_decorations
-    @calculator.store(t: @t.to_f)
+    (@calculator ||= Dentaku::Calculator.new).store(t: @t.to_f)
     @decorations.each do |k, conf|
       pos = conf["pos"].map { |x| x.class == Integer ? x : @calculator.evaluate(x).to_f }
-      color = conf["color"]
-      scale = conf["scale"].nil? ? [1, 1] : conf["scale"]
-      z = conf["z"].nil? ? 0 : conf["z"]
-      if conf["angle"].nil?
-        conf[:image].draw(*pos[0..1], z, scale[0], scale[1], color.nil? ? 0xff_ffffff : color)
-      else
-        conf[:image].draw_rot(*pos[0..1], z, conf["angle"], 0, 0, *scale[0..1], color.nil? ? 0xff_ffffff : color)
-      end
+      scale = conf["scale"] || [1, 1]
+      conf[:image].draw_rot(*pos[0..1], conf["z"] || 0, conf["angle"] || 0, 0, 0,
+      *scale[0..1], conf["color"] || 0xff_ffffff)
       draw_shadow scale, conf[:image], pos, 1, false if not conf["shadow"].nil?
     end
   end
 
   def draw_letter
-    @sheet.draw 500, 50, 0, 0.6, 0.6
+    return if @letter_name.nil?
+    @images[:sheet][0].draw 500, 50, 0, 0.6, 0.6
     @letter ||= YAML.load_file('letters.yaml')["beach"]
     image = @letter["image"]
     @letter_image ||= Gosu::Image.new("media/#{image["name"]}.png")
     @letter_text ||= Gosu::Image.from_text(
-        self, @letter["text"], "media/HelloPicasso.ttf", 70)
+      self, @letter["text"], "media/HelloPicasso.ttf", 70
+    )
     @letter_text.draw 650, 100, 0, 1, 1, 0xff_000000
-    pos = image["pos"]
-    scale = image["scale"]
-    @letter_image.draw *pos[0..1], 0, scale, scale
+    @letter_image.draw(*image["pos"][0..1], 0, image["scale"], image["scale"])
   end
 
   def configuration_updated
     current_scenes_mtime = File.mtime @@scenes_path
-    res = @last_scenes_mtime < current_scenes_mtime
-    @last_scenes_mtime = current_scenes_mtime
-    res
+    returning(@scenes_mtime < current_scenes_mtime) {@scenes_mtime = current_scenes_mtime}
+  end
+
+  def each_scene_shape
+    ([@letters, @blocks].map { |x| x.map { |k, o| o[:shape] } }.flatten +
+     @platforms + [@character_shape, @exit_shape]).each { |s| yield s }
   end
 
   def draw
     run_timeout_actions
+    move_character
     @touching_ground = false
     @space.step((1.0/60.0))
-    @t += 1
-    draw_decorations
-    draw_exit
-    draw_character
-    draw_blocks
-    if @bounding_boxes
-      draw_bounding_box @character_shape
-      draw_bounding_box @exit_shape
-      @platforms.each { |platform| draw_bounding_box platform }
-      @letters.each { |k, letter| draw_bounding_box letter[:shape] }
-      @blocks.each { |k, block| draw_bounding_box block[:shape] }
-    end
-    draw_letter if @letter_name
-    load_scene if @t % 50 == 0 and configuration_updated
+    %w(decorations exit character blocks letter).each { |what| send "draw_#{what}" }
+    each_scene_shape{ |x| draw_bounding_box(x.bb) } if @bounding_boxes
+    load_scene if (@t +=1) % 50 == 0 and configuration_updated
   end
 
   def compensate_mass shape
-    shape.body.apply_force v(0, - 1.00001 * shape.body.m * G), v(0, 0)
+    shape.body.apply_force G * (- 1.00001 * shape.body.m), Vec2.new(0, 0)
     shape.body.p.y -= 1
   end
 
   def run_timeout_actions
-    to_remove = []
-    now = Gosu.milliseconds
-    (@timeout_actions ||= []).each do |action|
-      if action[0] < now
-        to_remove << action
-        action[1].call
-      end
+    (@timeout_actions ||= []).select! do |action|
+      returning(action[0] >= Gosu.milliseconds) { |keep| action[1].call if not keep }
     end
-    @timeout_actions -= to_remove
   end
 
-  def crystal_ready
-    not @crystal_enabled and not @crystal_discharged
+  def timeout_action timeout_s, _proc
+    (@timeout_actions||= []) << [Gosu.milliseconds + timeout_s * 1000, _proc]
   end
 
-  def future_action timeout_ms, _proc
-    @timeout_actions << [Gosu.milliseconds + timeout_ms, _proc]
-  end
-  
   def enable_crystal
-    @crystal_enabled = true
+    @crystal_status = :enabled
     @blocks.each { |k, block| compensate_mass block[:shape] }
-    @timeout_actions ||= []
-    future_action(5000, Proc.new do
-      @blocks.each do |k, block|
-        block[:shape].body.reset_forces
-        @crystal_enabled = false
-        @crystal_discharged = true
-        future_action(5000, Proc.new do
-          @crystal_discharged = false
-        end)
-      end
+    timeout_action(5, proc do
+      @blocks.each { |k, block| block[:shape].body.reset_forces }
+      @crystal_status = :discharged
+      timeout_action(5, proc { @crystal_status = :disabled })
     end)
   end
 
-  def button_down( id )
+  def mute_unmute
+    @music_instance = @music_instance.nil? ? @music.play(0.5, 1, true) : @music_instance.stop
+  end
+
+  def on_space_or_button_2
     if @letter_name
-      case id
-      when Gosu::KbSpace, Gosu::GpButton2
-        @letter_name = nil
-      end
-    else
-      p id
-      case id
-      when Gosu::KbLeft, Gosu::GpLeft
-        @translation -= 1
-      when Gosu::KbRight, Gosu::GpRight
-        @translation = 1
-      when Gosu::KbSpace, Gosu::GpButton2
-        @character_shape.body.apply_impulse(v(0, -5000.0), v(0.0, 0.0)) if @touching_ground
-      when Gosu::KbUp
-        @up = true
-      when 15 #r
-        load_scene
-      when 20 #b
-        @bounding_boxes = !@bounding_boxes
-      when 9 #e
-        enable_crystal if crystal_ready
-      when 52 #m
-        if @music_instance.nil?
-          @music_instance = @music.play(0.5, 1, true)
-        else
-          @music_instance.stop
-          @music_instance = nil
-        end
-      when Gosu::KbEscape
-        close
-      end
+      @letter_name = nil
+    elsif @touching_ground
+      @character_shape.body.apply_impulse(Vec2.new(0, -5000.0), Vec2.new(0.0, 0.0))
     end
   end
 
-  def button_up( id )
+  def button_down id
+    (@actions ||= {
+      [Gosu::KbLeft, Gosu::GpLeft] => ->() { @translation = -1 },
+      [Gosu::KbRight, Gosu::GpRight] => ->() { @translation = 1 },
+      [Gosu::KbSpace, Gosu::GpButton2] => ->() { on_space_or_button_2 },
+      [Gosu::KbUp] => ->() { @up = true },
+      [15] => ->() {load_scene},
+      [20] => ->() {@bounding_boxes = !@bounding_boxes},
+      [9] => ->() {enable_crystal if @crystal_status == :disabled},
+      [52] => ->() { mute_unmute },
+      [Gosu::KbEscape] => ->() {close},
+    }).each { |keys, action| return action.call if keys.include? id }
+  end
+
+  def button_up id
     @translation = 0
     @up = false
   end
