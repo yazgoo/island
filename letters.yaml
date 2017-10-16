@@ -1,0 +1,24 @@
+beach:
+  image:
+    name: gem
+    pos: [700, 700]
+    scale: 0.5
+  text: |
+    Dear nephew,
+
+    You should read this when you arrive to the island 
+    beach. It must have been a long journey, so first
+    let me congratulate you !
+
+    Your path should be marked with cairns, so just
+    make sure you follow them (press up).
+
+                            On this island, the gem I gave
+                            you has a unique effect. When 
+                            enabled (press e), it will cancel 
+                            gravity for objects near you,
+                            allowing to move them around.
+
+    I hope you can succeed in finding the source of
+    these incredible physical properties.
+                                          (press space to close)
