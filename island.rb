@@ -26,7 +26,7 @@ class IslandWindow < Gosu::Window
   end
 
   def add_shape shape, u, collision_type
-    @character_shape.__set(u: u, collision_type: collision_type)
+    shape.__set(u: u, collision_type: collision_type)
     @space.add_body shape.body
     returning(shape) { @space.add_shape shape }
   end
