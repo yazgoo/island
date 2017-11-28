@@ -13,7 +13,7 @@ beach:
           pos: 
               [2300, 0, 2400, 1100]
       entry: [800, 820]
-      exit: [2250, 600, 50, 300]
+      exit: [2250, 800, 100, 300]
       letters:
         beach: [1200, 0, 100, 1100]
       decorations:
@@ -45,7 +45,7 @@ beach:
           size: [400, 300] 
           direction: up
       entry: [0, 820]
-      exit: [1800, 600, 50, 300]
+      exit: [1800, 800, 100, 300]
       decorations:
         background:
           color: 0xff_A9E2F3

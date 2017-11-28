@@ -106,7 +106,7 @@ class IslandWindow < Gosu::Window
   end
 
   def draw_exit
-    @images[:character][0].draw(*@exit_shape.object[0..1], 0, 0.2, 0.2)
+    @images[:stone_stack][0].draw(*@exit_shape.object[0..1], 0, 0.3, 0.3)
   end
 
   def initialize_platforms
@@ -154,7 +154,7 @@ class IslandWindow < Gosu::Window
   def initialize
     next_scene
     super(2400, 1600, false)
-    @images = Hash[%i(characters character white_circle sheet letter).map do |path|
+    @images = Hash[%i(characters character white_circle sheet letter stone_stack).map do |path|
                      [path, Dir.glob("media/#{path.to_s.sub(/s$/, "/*")}.png").map { |x| Gosu::Image.new(x) }]
                    end]
     %w(physics collisions_callbacks scene).each { |what| send "initialize_#{what}" }
