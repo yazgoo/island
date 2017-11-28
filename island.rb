@@ -50,7 +50,7 @@ class IslandWindow < Gosu::Window
   end
 
   def delete_scene
-    each_scene_shape { |shape| remove_shape_and_body shape, shape.collision_type != :block }
+    each_scene_shape(false) { |shape| remove_shape_and_body shape, shape.collision_type != :block }
     @decorations = []
     @timeout_actions = []
   end
@@ -238,9 +238,9 @@ class IslandWindow < Gosu::Window
     returning(@scenes_mtime < current_scenes_mtime) {@scenes_mtime = current_scenes_mtime}
   end
 
-  def each_scene_shape
+  def each_scene_shape(character_included=true)
     ([@letters, @blocks].map { |x| x.map { |k, o| o[:shape] } }.flatten +
-     @platforms + [@character_shape, @exit_shape]).each { |s| yield s }
+     @platforms + (character_included ?[@character_shape]:[]) + [@exit_shape]).each { |s| yield s }
   end
 
   def draw
