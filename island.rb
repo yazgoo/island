@@ -181,7 +181,7 @@ class IslandWindow < Gosu::Window
   def move_character
     if @translation == 0
       @character = @images[:character][0]
-    elsif @touching_ground
+    elsif @touching_ground and @letter_name.nil?
       @direction = @translation < 0 ? -1 : 1
       @character_shape.body.apply_impulse Vec2.new(@direction * 500.0, 0.0), Vec2.new(0.0, 0.0)
       @character = @images[:characters][Gosu.milliseconds / 100 % @images[:characters].size]
